@@ -1,4 +1,4 @@
-package genroutine
+package transaction
 
 // SessionManager обертка для коннекта к бд
 // например: sqlx.DB

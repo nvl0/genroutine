@@ -2,14 +2,14 @@ package genroutine
 
 import (
 	"fmt"
+	"genroutine/transaction"
 	"sync"
 )
 
 // returnDataWithRollback возвращает результат и выполняет роллбэк.
 // Типы: P - параметры, R - результат.
-func returnDataWithRollback[P, R any](sm SessionManager, f LoadData[P, R],
+func returnDataWithRollback[P, R any](sm transaction.SessionManager, f LoadData[P, R],
 	param P, ch chan<- option[R], wg *sync.WaitGroup) {
-
 	defer wg.Done()
 
 	var (
@@ -39,9 +39,8 @@ func returnDataWithRollback[P, R any](sm SessionManager, f LoadData[P, R],
 
 // returnErrWithCommit возвращает ошибку и выполняет коммит.
 // Тип P - параметры.
-func returnErrWithCommit[P any](sm SessionManager, f Exec[P],
+func returnErrWithCommit[P any](sm transaction.SessionManager, f Exec[P],
 	param P, ch chan<- error, wg *sync.WaitGroup) {
-
 	defer wg.Done()
 
 	var (

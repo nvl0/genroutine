@@ -2,15 +2,16 @@ package genroutine
 
 import (
 	"context"
+	"errors"
+	"genroutine/transaction"
 	"math"
 	"sync"
 )
 
 // LoopReturnDataList проходит цикл, возвращает результат, выполняет роллбэк.
 // Подходит для множественного получения списка результатов. Типы: P - параметры, R - результат.
-func LoopReturnDataList[P, R any](ctx context.Context, sm SessionManager, f LoadDataList[P, R],
+func LoopReturnDataList[P, R any](ctx context.Context, sm transaction.SessionManager, f LoadDataList[P, R],
 	paramList []P) (res []R, err error) {
-
 	res = make([]R, 0)
 
 	var (
@@ -24,9 +25,8 @@ func LoopReturnDataList[P, R any](ctx context.Context, sm SessionManager, f Load
 	defer cancel()
 
 	for _, param := range paramList {
-		// Анонимный враппер для проброса исходной функции.
 		// param = p, вторичный нейминг p нужен для избежания внутренней коллизии
-		go returnDataWithRollback(sm, func(ts Session, p P) ([]R, error) {
+		go returnDataWithRollback(sm, func(ts transaction.Session, p P) ([]R, error) {
 			return f(ts, p)
 		}, param, ch, &wg)
 	}
@@ -56,14 +56,16 @@ Loop:
 			res = append(res, r...)
 		}
 	}
-
 	return
 }
 
 // OffsetLoopReturnErr проходит по циклу со сдвигом, возвращает ошибку, выполняет коммит.
 // Подходит для множественной записи списков. Тип P - параметры.
-func OffsetLoopReturnErr[P any](ctx context.Context, sm SessionManager, f ExecList[P],
+func OffsetLoopReturnErr[P any](ctx context.Context, sm transaction.SessionManager, f ExecList[P],
 	paramList []P, offset int) (err error) {
+	if offset <= 0 {
+		return errors.New("offset должен быть положительным")
+	}
 
 	var (
 		iter = int(math.Ceil(float64(len(paramList)) / float64(offset)))
@@ -88,9 +90,8 @@ func OffsetLoopReturnErr[P any](ctx context.Context, sm SessionManager, f ExecLi
 
 		offsetParamList := paramList[start:end]
 
-		// Анонимный враппер для проброса исходной функции.
 		// offsetParamList = opl, вторичный нейминг opl нужен для избежания внутренней коллизии
-		go returnErrWithCommit(sm, func(ts Session, opl []P) error {
+		go returnErrWithCommit(sm, func(ts transaction.Session, opl []P) error {
 			return f(ts, opl)
 		}, offsetParamList, ch, &wg)
 	}
